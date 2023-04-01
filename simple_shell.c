@@ -42,6 +42,24 @@ char **tokenize_input(char *input) {
 }
 
 int execute_command(char **args) {
+
+    char *script_path = args[0];
+    int script_length = strlen(script_path);
+    if (script_length >= 3 && strcmp(&script_path[script_length - 3], ".sh") == 0) {
+        int new_argc = 0;
+        while (args[new_argc]) {
+            new_argc++;
+        }
+
+        char **new_argv = malloc((new_argc + 2) * sizeof(char *));
+        new_argv[0] = "/bin/sh";
+        for (int i = 0; i < new_argc; i++) {
+            new_argv[i + 1] = args[i];
+        }
+        new_argv[new_argc + 1] = NULL;
+        args = new_argv;
+    }
+    
     int in_fd = -1, out_fd = -1;
     int pipe_position = -1;
 
