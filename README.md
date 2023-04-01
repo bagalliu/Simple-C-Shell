@@ -6,4 +6,4 @@ Features:
 * Reads input from the user and tokenizes the command into arguments.
 * Forks a child process and executes the command using execvp().
 * Handles basic process management, including process creation and waiting for child processes to finish.
-* The source code can be found in the simple_shell.c file.
+* Supports pipes (|) for chaining commands together, connecting the output of one command to the input of another.
