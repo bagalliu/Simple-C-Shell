@@ -8,6 +8,7 @@ This project demonstrates my ability to create a simple Unix shell using the C p
 * Handles basic process management, including process creation and waiting for child processes to finish.
 * Supports pipes (|) for chaining commands together, connecting the output of one command to the input of another.
 * Implements command history with arrow key navigation using the readline library.
+* Supports input/output redirection using < and > symbols, allowing users to redirect the output of a command to a file or read input from a file.
 
 ## How to compile and run
 
