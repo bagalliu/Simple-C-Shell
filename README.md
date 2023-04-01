@@ -9,6 +9,7 @@ This project demonstrates my ability to create a simple Unix shell using the C p
 * Supports pipes (|) for chaining commands together, connecting the output of one command to the input of another.
 * Implements command history with arrow key navigation and tab-completion for commands and file paths using the readline library.
 * Supports input/output redirection using < and > symbols, allowing users to redirect the output of a command to a file or read input from a file.
+* Allows users to execute shell scripts directly without specifying an interpreter.
 
 ## How to compile and run
 
