@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-
+#include <fcntl.h>
 
 #define MAX_INPUT_LENGTH 1024
 #define TOKEN_DELIMITERS " \t\r\n\a"
@@ -42,17 +42,31 @@ char **tokenize_input(char *input) {
 }
 
 int execute_command(char **args) {
+    int in_fd = -1, out_fd = -1;
     int pipe_position = -1;
 
     for (int i = 0; args[i] != NULL; i++) {
-        if (strcmp(args[i], "|") == 0) {
+        if (strcmp(args[i], "<") == 0) {
+            in_fd = open(args[i + 1], O_RDONLY);
+            if (in_fd == -1) {
+                perror("open");
+                return 1;
+            }
+            args[i] = NULL;
+        } else if (strcmp(args[i], ">") == 0) {
+            out_fd = open(args[i + 1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (out_fd == -1) {
+                perror("open");
+                return 1;
+            }
+            args[i] = NULL;
+        } else if (strcmp(args[i], "|") == 0) {
             pipe_position = i;
             break;
         }
     }
 
     if (pipe_position != -1) {
-
         int fd[2];
         if (pipe(fd) == -1) {
             perror("pipe");
@@ -97,12 +111,23 @@ int execute_command(char **args) {
 
         waitpid(pid1, NULL, 0);
         waitpid(pid2, NULL, 0);
+
     } else {
+
         pid_t pid;
         int status;
 
         pid = fork();
         if (pid == 0) {
+            if (in_fd != -1) {
+                dup2(in_fd, STDIN_FILENO);
+                close(in_fd);
+            }
+            if (out_fd != -1) {
+                dup2(out_fd, STDOUT_FILENO);
+                close(out_fd);
+            }
+
             if (execvp(args[0], args) == -1) {
                 perror("execvp");
                 exit(EXIT_FAILURE);
@@ -115,10 +140,12 @@ int execute_command(char **args) {
                 waitpid(pid, &status, WUNTRACED);
             } while (!WIFEXITED(status) && !WIFSIGNALED(status));
         }
+
     }
 
     return 1;
 }
+
 
 
 int main(void) {
@@ -138,5 +165,3 @@ int main(void) {
 
     return EXIT_SUCCESS;
 }
-
-
