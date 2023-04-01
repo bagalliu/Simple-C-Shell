@@ -12,7 +12,7 @@
 #define TOKEN_DELIMITERS " \t\r\n\a"
 
 char *read_input(void) {
-    char *input = readline("");
+    char *input = readline("> ");
     if (input && *input) {
         add_history(input);
     }
@@ -146,7 +146,35 @@ int execute_command(char **args) {
     return 1;
 }
 
+char *completion_generator(const char *text, int state);
 
+char **custom_completion(const char *text, int start, int end) {
+    rl_attempted_completion_over = 1;
+    return rl_completion_matches(text, completion_generator);
+}
+
+char *completion_generator(const char *text, int state) {
+    static int list_index, len;
+    char *name;
+
+    if (!state) {
+        list_index = 0;
+        len = strlen(text);
+    }
+
+    while ((name = rl_filename_completion_function(text, list_index++))) {
+        if (strncmp(name, text, len) == 0) {
+            return name;
+        }
+        free(name);
+    }
+
+    return NULL;
+}
+
+void initialize_readline() {
+    rl_attempted_completion_function = custom_completion;
+}
 
 int main(void) {
     char *input;
@@ -154,7 +182,6 @@ int main(void) {
     int status;
 
     do {
-        printf("> ");
         input = read_input();
         args = tokenize_input(input);
         status = execute_command(args);
