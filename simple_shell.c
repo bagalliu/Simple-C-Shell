@@ -4,16 +4,21 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <readline/readline.h>
+#include <readline/history.h>
+
 
 #define MAX_INPUT_LENGTH 1024
 #define TOKEN_DELIMITERS " \t\r\n\a"
 
 char *read_input(void) {
-    char *input = NULL;
-    ssize_t buffer_size = 0;
-    getline(&input, &buffer_size, stdin);
+    char *input = readline("");
+    if (input && *input) {
+        add_history(input);
+    }
     return input;
 }
+
 char **tokenize_input(char *input) {
     int buffer_size = 64;
     int position = 0;
