@@ -11,6 +11,56 @@
 #define MAX_INPUT_LENGTH 1024
 #define TOKEN_DELIMITERS " \t\r\n\a"
 
+typedef struct Alias {
+    char *name;
+    char *command;
+    struct Alias *next;
+} Alias;
+
+Alias *aliases = NULL;
+
+void add_alias(const char *name, const char *command) {
+    Alias *new_alias = malloc(sizeof(Alias));
+    new_alias->name = strdup(name);
+    new_alias->command = malloc(strlen(command) + 1);
+    strcpy(new_alias->command, command);
+    new_alias->next = aliases;
+    aliases = new_alias;
+}
+
+
+void remove_alias(const char *name) {
+    Alias *current = aliases;
+    Alias *previous = NULL;
+
+    while (current != NULL) {
+        if (strcmp(current->name, name) == 0) {
+            if (previous == NULL) {
+                aliases = current->next;
+            } else {
+                previous->next = current->next;
+            }
+            free(current->name);
+            free(current->command);
+            free(current);
+            return;
+        }
+        previous = current;
+        current = current->next;
+    }
+}
+
+const char *find_alias(const char *name) {
+    Alias *current = aliases;
+    while (current != NULL) {
+        if (strcmp(current->name, name) == 0) {
+            return current->command;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
 char *read_input(void) {
     char *input = readline("> ");
     if (input && *input) {
@@ -25,23 +75,135 @@ char **tokenize_input(char *input) {
     char **tokens = malloc(buffer_size * sizeof(char *));
     char *token;
 
-    token = strtok(input, TOKEN_DELIMITERS);
-    while (token != NULL) {
-        tokens[position] = token;
-        position++;
-
-        if (position >= buffer_size) {
-            buffer_size += 64;
-            tokens = realloc(tokens, buffer_size * sizeof(char *));
+    while (*input != '\0') {
+        while (isspace(*input)) {
+            input++;
         }
 
-        token = strtok(NULL, TOKEN_DELIMITERS);
+        if (*input == '"' || *input == '\'') {
+            char quote = *input++;
+            token = input;
+            while (*input != quote && *input != '\0') {
+                input++;
+            }
+            if (*input == quote) {
+                *input++ = '\0';
+            }
+        } else {
+            token = input;
+            while (!isspace(*input) && *input != '\0') {
+                input++;
+            }
+            if (*input != '\0') {
+                *input++ = '\0';
+            }
+        }
+
+        const char *alias_command = NULL;
+        if (position == 0) {
+            alias_command = find_alias(token);
+        }
+        
+        if (alias_command) {
+            char *alias_command_copy = strdup(alias_command);
+            char *alias_token = strtok(alias_command_copy, TOKEN_DELIMITERS);
+            while (alias_token != NULL) {
+                tokens[position] = strdup(alias_token);
+                position++;
+
+                if (position >= buffer_size) {
+                    buffer_size += 64;
+                    tokens = realloc(tokens, buffer_size * sizeof(char *));
+                }
+
+                alias_token = strtok(NULL, TOKEN_DELIMITERS);
+            }
+            free(alias_command_copy);
+        } else {
+            tokens[position] = strdup(token);
+            position++;
+
+            if (position >= buffer_size) {
+                buffer_size += 64;
+                tokens = realloc(tokens, buffer_size * sizeof(char *));
+            }
+        }
     }
+
     tokens[position] = NULL;
     return tokens;
 }
 
+
+int handle_builtin(char **args) {
+    if (strcmp(args[0], "cd") == 0) {
+        if (args[1] == NULL) {
+            fprintf(stderr, "cd: expected argument\n");
+            return 1;
+        } else {
+            if (chdir(args[1]) != 0) {
+                perror("cd");
+                return 1;
+            }
+            return 1;
+        }
+    }
+
+    if (strcmp(args[0], "pwd") == 0) {
+        char cwd[1024];
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+            printf("%s\n", cwd);
+        } else {
+            perror("getcwd");
+        }
+        return 1;
+    }
+
+    if (strcmp(args[0], "alias") == 0) {
+        if (args[1] == NULL) {
+            Alias *current = aliases;
+            while (current != NULL) {
+                printf("%s='%s'\n", current->name, current->command);
+                current = current->next;
+            }
+        } else if (args[2] != NULL) {
+            // Combine the rest of the arguments into a single command string
+            int command_length = 0;
+            for (int i = 2; args[i] != NULL; i++) {
+                command_length += strlen(args[i]) + 1;
+            }
+            char *command = malloc(command_length);
+            strcpy(command, args[2]);
+            for (int i = 3; args[i] != NULL; i++) {
+                strcat(command, " ");
+                strcat(command, args[i]);
+            }
+            add_alias(args[1], command);
+            free(command);
+        } else {
+            fprintf(stderr, "alias: expected argument\n");
+        }
+        return 1;
+    }
+
+    if (strcmp(args[0], "unalias") == 0) {
+        if (args[1] == NULL) {
+            fprintf(stderr, "unalias: expected argument\n");
+            return 1;
+        } else {
+            remove_alias(args[1]);
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 int execute_command(char **args) {
+    int builtin_status = handle_builtin(args);
+    if (builtin_status) {
+        return builtin_status;
+    }
 
     char *script_path = args[0];
     int script_length = strlen(script_path);
